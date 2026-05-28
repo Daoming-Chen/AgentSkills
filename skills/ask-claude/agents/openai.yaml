@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ask Claude"
+  short_description: "Ask Claude Code CLI as an external Codex sub-agent."
+  default_prompt: "Ask Claude for an independent answer, codebase inspection, validation run, review, or bounded discussion."
