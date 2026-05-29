@@ -1,4 +1,4 @@
 interface:
   display_name: "Ask Claude"
-  short_description: "Ask Claude Code CLI as an external Codex sub-agent."
-  default_prompt: "Ask Claude for an independent answer, codebase inspection, validation run, review, or bounded discussion."
+  short_description: "Ask Claude CLI through a Codex sub-agent to keep the main context clean."
+  default_prompt: "Ask Claude through a Codex sub-agent for an independent answer, codebase inspection, validation run, review, or bounded discussion."
