@@ -16,7 +16,7 @@ description: "将用户的 Claude 请求通过 Codex 子代理转发给 Claude C
 ## CLI 命令
 
 ```bash
-claude -p --model claude-opus-4-8 --effort max --permission-mode bypassPermissions --cwd "<workspace_path>" "<prompt>"
+claude -p --model claude-opus-4-8 --effort max --permission-mode bypassPermissions "<prompt>"
 ```
 
 ## 前置条件
