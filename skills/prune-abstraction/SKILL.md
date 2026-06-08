@@ -1,86 +1,154 @@
 ---
 name: prune-abstraction
-description: "修剪过度抽象的代码：内联只装饰控制流的 helper 和间接层，同时保留有语义边界的抽象。适用于用户抱怨过度抽象的“Clean Code”、helper 函数森林、碎片化控制流、无意义临时变量，或要求代码更直接、更过程式、更紧凑、更容易不跳转阅读时。"
+description: "以高 refactor 预算校准代码 abstraction density：inline 装饰性 helper、wrapper、adapter、冗余 carrier 和临时变量，保留真正的 semantic boundary。当用户抱怨过度 abstraction、Clean Code 教条、helper 膨胀、过度 indirection、control flow 碎片化，或要求代码更直接、更 procedural、更接近 C 风格、更 compact、更高 density、更 inline、更榨干时使用。"
 ---
 
-# 抽象修枝
+# 裁剪 Abstraction
 
-## 原则
+## 核心原则
 
-修剪多余抽象，而不是反对抽象。优化语义密度，而不是追求最少行数。目标形态是：一条可顺读的**内联执行脊柱**，加少量有语义价值的 helper 块。
+优化 semantic density，而不是追求最少行数。目标形态是一条 inline 的执行主线，加上少量真正承载语义重量的 helper。默认怀疑没有 reuse 的 helper。保留那些命名稳定 domain concept、保护 contract，或能显著降低 state pressure 的 abstraction。
 
-把这个 skill 当作校准器，而不是通用风格规则。不要为了“直接”而覆盖仓库既有约定，除非用户明确要求。
+这个 skill 用来校准 abstraction density；除非用户明确要求这个方向，否则它不替代代码库原本的常规风格。
 
-## 工作流
+## 挂钩工作流
 
-1. 先读周边代码和测试，理解当前模块的约定、失败契约和公共行为。
-2. 找出主执行脊柱，也就是维护者必须最先理解的顺序。
-3. 内联装饰性抽象，保留或恢复认知抽象。
-4. 先跑聚焦测试，再按风险扩大到仓库级检查。
-5. 最后反向复读一次：确认没有把代码压成巨型函数迷宫。
+1. 编辑前先阅读周边代码和测试。
+2. 运行 scope hook 和 mainline hook。
+3. Inline 装饰性 abstraction，并删除装饰性 data carrier。
+4. 运行 structure hook、helper inventory hook、touched helper hook 和 smell hook。
+5. 运行 readability rollback hook。
+6. 运行 validation hook。
+7. 最终回复前运行 exit record hook。
 
-## 识别主执行脊柱
+## Inline 与保留
 
-让核心函数尽量能自上而下读成一条直接的过程路径，例如：
+当 abstraction 只是装饰性时，inline 它：
 
-```text
-验证输入 -> 初始化状态 -> 循环：解析、操作、合并 -> 返回结果
-```
+- 只调用一次、只转发参数的 wrapper。
+- `_maybe_*`、`_commit_*`、`_resolve_*`、`_merge_*`、adapter 或 stage helper，如果它们只是在隐藏一个 `if`、一次直接调用，或一个平凡的对象构造。
+- 函数体没有揭示新 concept 的 helper。
+- 只是为了在本地 helper 层之间传值而引入的 data carrier。
+- 冗余临时变量，例如 `result = f(); return result`。
+- 只使用一次，又没有澄清 concept、缩短复杂表达式、避免重复计算、收窄类型或改善错误信息的 alias。
 
-避免让主函数变成一张由模糊动词组成的跳转表，例如 `_resolve`、`_commit`、`_solve`、`_merge`。当某一段局部逻辑真的变密时，再抽出一个用概念命名的 helper，而不是用机械动作命名。
+当 abstraction 确实降低 cognitive load 时，保留它：
 
-优先使用 guard clause 降低嵌套。只有在表达式、推导式、链式调用仍然清楚时才使用它们；不要把条件分支、错误契约或多字段构造压成三元表达式谜题。
+- 它是真正被 reuse 的，而不只是同一次 refactor 中制造出来的 helper chain reuse。
+- 它命名了稳定的 domain concept。
+- 它保护了细微的 invariant、公共 contract、validation、protocol rule、parse rule、serialization shape 或 error structure。
+- 它包含 algorithm logic，并且局部命名能降低读者的 state pressure。
+- 它避免主流程同时追踪过多 live value。
 
-## 该内联的抽象
+## 结构检查
 
-内联只装饰控制流、没有降低认知负担的抽象：
+不要删掉明显 wrapper 后就停下。重新检查 abstraction topology：
 
-- 只被调用一次的薄 wrapper。
-- `_maybe_*`、`_commit_*`、adapter 等只隐藏一个 `if` 或只转发参数的 helper。
-- 名字看似清楚，但函数体没有揭示新概念的 helper。
-- 重构过程中产生的搬运型临时变量或数据载体，例如 `result = f(); return result`。
-- 单次使用、含义显而易见的别名。
+- 删除那些只是在连接刚被删除 helper 的 carrier。
+- Inline 仍然遮挡执行主线的剩余 wrapper。
+- 如果一个 helper 只是喂给下一个 helper，就合并这对 helper。
+- 确认主函数现在承担编排职责，而不是读起来像一张含糊的动词表。
 
-内联前先确认调用点语境足够小；如果内联后局部状态爆炸，说明这个 helper 可能仍有价值，或需要重新命名和收窄。
+优先使用 guard clause，而不是深层嵌套。只有在仍然显然易懂时才使用推导式和表达式。不要把条件、error contract 或多字段对象构造变成 expression puzzle。
 
-## 该保留的抽象
+## Hooks
 
-保留能压缩真实概念、稳定契约或易错规则的抽象：
+Hooks 是强制检查点。如果某个 hook 没有通过，就继续编辑或 rollback，直到通过。Hooks 应用于用户请求的范围和你触碰过的文件；只有当调用点或 ownership boundary 要求时才扩大范围。保持 hook 通用：根据语言和代码库调整 private/helper 检测方式，不要硬编码文件名、模块名或 framework 假设。
 
-- 命名了稳定的领域概念。
-- 封装了非平凡的不变量、契约、校验、类型收窄或状态转换。
-- 承载算法、解析、序列化、协议、查询构建等独立逻辑。
-- 集中构造容易出错的错误形状或响应形状。
-- 明显减少读者同时需要追踪的活跃状态。
+### Loop Protocol
 
-保留有概念价值的变量：能命名概念、缩短复杂表达式、避免重复计算、帮助类型收窄、澄清错误语义的临时变量都应该留下。
+不要只运行一次 hook。单次检查本身就是 smell。使用循环：
 
-保留有稳定语义的数据结构。不要为了删除结构而产生不透明的元组，例如 `tuple[list[Waypoint], FloatArray | None]`。
+1. 第一次编辑后至少运行两轮 prune loop：structure hook -> helper inventory hook -> touched helper hook -> smell hook；如果 loop 发现没有正当理由的 abstraction，就继续编辑。
+2. 持续运行 prune loop，直到完整一轮没有发现缺少 survival reason 的 helper、carrier 或 smell。
+3. Prune loop 后运行 readability rollback hook。如果 rollback 改变了 helper topology 或新增 boundary，再运行 prune loop。
+4. 最终 loop 之后再运行 validation hook，不要在收敛前验证。
+5. 最后运行 exit record hook。
 
-## 重构形状
+即使是很小的编辑，也要对 touched area 做两次心智或可视检查。较大的 refactor 则持续循环，直到 helper inventory 稳定。
 
-让主路径直接，但不要把所有东西都揉进一个函数。理想结果通常是：
+### Scope Hook
 
-- 一个可顺读的主函数或主方法。
-- 少量用领域概念、协议概念或错误契约命名的 helper。
-- 明确的 guard clause 和错误返回。
-- 局部变量数量适中，名字服务于理解，而不是服务于分层。
-- 测试仍然围绕公共行为，而不是围绕被删除的内部 helper。
+编辑前，明确 touched scope：请求实际覆盖的文件、模块、函数或组件。除非用户要求或 dependency graph 需要，否则不要扩展到整个仓库。
 
-当一个块变得密集时，提取它；但 helper 名称要解释“概念是什么”，而不是“机械步骤是什么”。
+### Mainline Hook
 
-## 护栏
+编辑前，识别主执行线：maintainer 必须优先理解的顺序。Refactor 应该让这条主线更直接。
 
-保持行为稳定，编辑范围收窄。不要追求最少行数，不要禁止 helper，不要禁止临时变量。留下少量高价值 helper 通常比完全没有 helper 更好。
+### Structure Hook
 
-不要为了紧凑牺牲类型清晰度、错误行为、日志语义、性能特征或测试覆盖。遇到公共 API、错误消息、序列化格式、持久化数据、跨模块契约时，先确认行为再改形状。
+第一次编辑后，重新检查 abstraction topology：
 
-## 收尾检查
+- 只是连接已删除 helper 的 carrier。
+- 仍然遮挡执行主线的 wrapper。
+- 一个 helper 只是喂给下一个 helper 的 helper pair。
+- 仍然读起来像含糊 dispatch table 的主函数。
 
-提交最终结果前，逐项确认：
+Inline 或合并这个 hook 发现的任何装饰性层级。
 
-- 主路径是否能不频繁跳转地读完？
-- 每个留下的 helper 是否配得上自己的名字？
-- 每个被内联的块是否降低的间接性多于增加的局部复杂度？
-- 失败契约、公共行为和测试是否仍然完整？
-- 是否避免了相反问题：一个过长、过密、难以定位概念边界的巨型函数？
+### Helper Inventory Hook
+
+在可用时用结构化工具列出 touched 文件里的 private/local helper；不可用时使用语言感知的搜索。根据语言调整模式：Python private function、TypeScript local function、private method、internal class、shell helper、test fixture helper，以及类似的 local abstraction 都算。
+
+对编辑区域内或附近保留的每个 helper，至少验证一个 survival reason：
+
+- 在装饰性 helper chain 之外被 reuse。
+- 稳定 domain concept。
+- invariant、contract、protocol、validation、parse、serialization 或 error structure。
+- 显著降低 live state pressure。
+
+如果都不成立，就 inline 它。
+
+### Touched Helper Hook
+
+每个 definition 或 call site 发生变化的 helper 都必须重新审计。不要因为它在 refactor 前就存在，就假设它仍然值得保留。
+
+### Smell Hook
+
+主动在 touched area 搜索 abstraction smell：
+
+- 包装单个 expression 的一行 helper。
+- 单调用 helper。
+- 只守护一次调用的 `_maybe_*` helper。
+- 只复制字段的 `_merge_*` helper。
+- 只构造一个公共对象的 `_failure_*` 或 builder helper。
+- `return bool(expr)` wrapper。
+- `x = f(...); return x`。
+- 只用一次、没有 type/error/concept 价值的 alias。
+
+每个 smell 都必须被移除，或用 survival reason 明确证明。
+
+### Readability Rollback Hook
+
+Inline 后，检查相反方向的失败模式：
+
+- Expression puzzle。
+- 带有过多 live state 的巨大函数。
+- 重复的细微 contract。
+- 丢失的 domain vocabulary。
+- 超过用户请求范围的编辑面。
+
+只 rollback 那些确实降低 state pressure 或命名真实 concept 的 boundary。
+
+### Validation Hook
+
+优先用 focused test 验证。当实现触碰 shared behavior、公共 contract、import 或跨模块流程时，再运行更广的检查。
+
+### Exit Record Hook
+
+结束前，准备好说明：
+
+- 哪些 helper/carrier 被删除或 inline。
+- Touched area 里还剩哪些 helper。
+- 每个值得一提的剩余 helper 为什么存活。
+
+这份记录是自检；除非用户要求完整清单，否则面向用户的最终回复保持简洁。
+
+## 退出条件
+
+结果必须至少满足一项：
+
+- 主执行线明显更直接。
+- 继续 inline 会破坏已命名的 semantic boundary、重复细微 contract，或制造 state pressure/expression puzzle 成本。
+
+只删除几个 helper，却保留原来的 abstraction topology，是不够的。
