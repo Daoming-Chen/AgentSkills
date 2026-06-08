@@ -6,6 +6,10 @@
 
 ```
 skills/
+├── prune-abstraction/   # 抽象修枝，重构过度间接的代码
+│   ├── SKILL.md         # 技能定义与使用说明
+│   └── agents/
+│       └── openai.yaml  # OpenAI Codex 接口配置
 └── ask-claude/          # 将 Claude Code CLI 作为外部子代理调用
     ├── SKILL.md         # 技能定义与使用说明
     └── agents/
@@ -13,6 +17,15 @@ skills/
 ```
 
 ## 已有技能
+
+### prune-abstraction
+
+抽象修枝：移除只装饰流程的 helper 和过多间接层，同时保留表达领域概念、契约、不变量或错误形状的语义边界。
+
+适用场景：
+- 用户抱怨代码过度抽象、Clean Code 味太重、helper 函数森林
+- 希望代码更直接、更过程式、更紧凑，或更容易不跳转阅读
+- 需要把碎片化控制流整理成可顺读的主执行路径
 
 ### ask-claude
 
